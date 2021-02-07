@@ -19,6 +19,21 @@ VL6180X adafruitsensor2;
 TCA9548A I2CMux; 
 Adafruit_BME280 bme;
 
+struct TofSensor
+{
+    VL6180X &sensor;
+    uint8_t resetPin, i2cAddress;
+};
+
+const TofSensor tofSensors[4] = {
+  TofSensor { pololusensor1,   PIN_RESET_POLOLU_1,   25 },
+  TofSensor { pololusensor2,   PIN_RESET_POLOLU_2,   26 },
+  TofSensor { adafruitsensor1, PIN_RESET_ADAFRUIT_1, 27 },
+  TofSensor { adafruitsensor2, PIN_RESET_ADAFRUIT_2, 28 }
+};
+
+const uint8_t numberOfSensors = sizeof(tofSensors) / sizeof(TofSensor);
+
 void scanI2C() {
   Serial.println ("I2C scanner. Scanning ...");
   byte count = 0;
@@ -54,17 +69,12 @@ https://github.com/pololu/vl53l0x-arduino/issues/1
 */
 
 void setup() {
-    pinMode(PIN_RESET_POLOLU_1, OUTPUT);
-    digitalWrite(PIN_RESET_POLOLU_1, LOW);
-
-    pinMode(PIN_RESET_POLOLU_2, OUTPUT);
-    digitalWrite(PIN_RESET_POLOLU_2, LOW);
-
-    pinMode(PIN_RESET_ADAFRUIT_1, OUTPUT);
-    digitalWrite(PIN_RESET_ADAFRUIT_1, LOW);
-
-    pinMode(PIN_RESET_ADAFRUIT_2, OUTPUT);
-    digitalWrite(PIN_RESET_ADAFRUIT_2, LOW);
+    // Send shutdown signal to VL6180X sensors to be able to changer their I2C address
+    for (uint8_t i = 0; i < numberOfSensors; i++)
+    {
+      pinMode(tofSensors[i].resetPin, OUTPUT);
+      digitalWrite(tofSensors[i].resetPin, LOW);
+    }
 
     #ifdef DEBUG    
       Serial.begin(9600);
@@ -75,85 +85,40 @@ void setup() {
     delay(500);
     Wire.begin();
 
-    // Sensor 1 Pololu
-    pinMode(PIN_RESET_POLOLU_1, INPUT);
-    delay(150);
-    pololusensor1.init();
-    Serial.println("03");
-    delay(100);
-    pololusensor1.setAddress((uint8_t)25);
-    Serial.println("04");
+    // Wake up one sensor afther the other to change its I2C address
+    // and configure it
+    for (uint8_t i = 0; i < numberOfSensors; i++)
+    {
+      Serial.print("Configure ToF-Sensor #");
+      Serial.print(i);
+      Serial.print(": ");
+      pinMode(tofSensors[i].resetPin, INPUT);
+      delay(150);
+      tofSensors[i].sensor.init();
+      delay(100);
+      tofSensors[i].sensor.setAddress(tofSensors[i].i2cAddress);
+      Serial.print("I2C address set to ");
+      Serial.print(tofSensors[i].sensor.getAddress());
 
-    Serial.println("addresses set");
+      tofSensors[i].sensor.init();
+      tofSensors[i].sensor.configureDefault();
 
-    pololusensor1.init();
-    pololusensor1.configureDefault();
+      // Reduce range max convergence time and ALS integration
+      // time to 30 ms and 50 ms, respectively, to allow 10 Hz
+      // operation (as suggested by table "Interleaved mode
+      // limits (10 Hz operation)" in the datasheet).
+      tofSensors[i].sensor.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, 30);
+      tofSensors[i].sensor.writeReg16Bit(VL6180X::SYSALS__INTEGRATION_PERIOD, 50);
+      tofSensors[i].sensor.setTimeout(500);
 
+      // stop continuous mode if already active
+      tofSensors[i].sensor.stopContinuous();
+      // in case stopContinuous() triggered a single-shot
+      // measurement, wait for it to complete
+      delay(300);
 
-    // Sensor 2 Polulu
-    pinMode(PIN_RESET_POLOLU_2, INPUT);
-    delay(150);
-    pololusensor2.init();
-    Serial.println("03");
-    delay(100);
-    pololusensor2.setAddress((uint8_t)27);
-    Serial.println("04");
-
-    Serial.println("addresses set");
-
-    pololusensor2.init();
-    pololusensor2.configureDefault();
-
-    // Sensor 3 Adafruit (with pololu lib)
-    pinMode(PIN_RESET_ADAFRUIT_1, INPUT);
-    delay(150);
-    adafruitsensor1.init();
-    Serial.println("03");
-    delay(100);
-    adafruitsensor1.setAddress((uint8_t)29);
-    Serial.println("04");
-
-    Serial.println("addresses set");
-
-    adafruitsensor1.init();
-    adafruitsensor1.configureDefault();
-
-    // Sensor 4 is left to default address
-    pinMode(PIN_RESET_ADAFRUIT_2, INPUT);
-    delay(150);
-    adafruitsensor2.init();
-    adafruitsensor2.configureDefault();
-
-
-    // Reduce range max convergence time and ALS integration
-    // time to 30 ms and 50 ms, respectively, to allow 10 Hz
-    // operation (as suggested by table "Interleaved mode
-    // limits (10 Hz operation)" in the datasheet).
-    pololusensor1.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, 30);
-    pololusensor2.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, 30);
-    adafruitsensor1.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, 30);
-    adafruitsensor2.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, 30);
-
-
-    pololusensor1.writeReg16Bit(VL6180X::SYSALS__INTEGRATION_PERIOD, 50);
-    pololusensor2.writeReg16Bit(VL6180X::SYSALS__INTEGRATION_PERIOD, 50);
-    adafruitsensor1.writeReg16Bit(VL6180X::SYSALS__INTEGRATION_PERIOD, 50);
-    adafruitsensor2.writeReg16Bit(VL6180X::SYSALS__INTEGRATION_PERIOD, 50);
-
-    pololusensor1.setTimeout(500);
-    pololusensor2.setTimeout(500);
-    adafruitsensor1.setTimeout(500);
-    adafruitsensor2.setTimeout(500);
-
-    // stop continuous mode if already active
-    pololusensor1.stopContinuous();
-    pololusensor2.stopContinuous();
-    adafruitsensor1.stopContinuous();
-    adafruitsensor2.stopContinuous();
-    // in case stopContinuous() triggered a single-shot
-    // measurement, wait for it to complete
-    delay(300);
-
+      Serial.println(", configuration completed");
+    }
 
     // IC2 Multiplex
     I2CMux.begin(Wire);             // TwoWire isntance can be passed here as 3rd argument
@@ -199,45 +164,24 @@ void setup() {
 void loop()
 {
   Serial.print("Ambient: ");
-  Serial.print(pololusensor1.readAmbientContinuous());
-  if (pololusensor1.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
+  for (uint8_t i = 0; i < numberOfSensors; i++)
+  {
+    Serial.print(tofSensors[i].sensor.readAmbientContinuous());
+    if (tofSensors[i].sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
 
-  Serial.print(" / ");
-
-  Serial.print(pololusensor2.readAmbientContinuous());
-  if (pololusensor2.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
-
-  Serial.print(" / ");
-
-  Serial.print(adafruitsensor1.readAmbientContinuous());
-  if (adafruitsensor1.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
-  
-  Serial.print(" / ");
-
-  Serial.print(adafruitsensor2.readAmbientContinuous());
-  if (adafruitsensor2.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
-
+    if(i < numberOfSensors-1) { Serial.print(" / "); }
+  }
 
 
   Serial.print("\tRange: ");
-  Serial.print(pololusensor1.readRangeContinuousMillimeters());
-  if (pololusensor1.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
+  for (uint8_t i = 0; i < numberOfSensors; i++)
+  {
+    Serial.print(tofSensors[i].sensor.readRangeContinuousMillimeters());
+    if (tofSensors[i].sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
 
-  Serial.print(" / ");
-
-  Serial.print(pololusensor2.readRangeContinuousMillimeters());
-  if (pololusensor2.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
-
-  Serial.print(" / ");
+    if(i < numberOfSensors-1) { Serial.print(" / "); }
+  }
   
-  Serial.print(adafruitsensor1.readRangeContinuousMillimeters());
-  if (adafruitsensor1.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
-
-  Serial.print(" / ");
-  
-  Serial.print(adafruitsensor2.readRangeContinuousMillimeters());
-  if (adafruitsensor2.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
-
 
   Serial.print("\tTemp: ");
   I2CMux.openChannel(0);
