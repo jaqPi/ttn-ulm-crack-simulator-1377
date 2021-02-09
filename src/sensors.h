@@ -4,15 +4,21 @@
 #ifndef SENSORS_H
 #define SENSORS_H
 
-enum measureMode {
+enum MeasureMode {
     INTERLEAVED,
-    SUCCESSIVELY
+    ONE_BY_ONE
+};
+
+enum CalibrationMode {
+    MANUAL,
+    AUTO
 };
 
 struct SensorConfig
 {
-    measureMode mode;
-    uint16_t SYSRANGE__MAX_CONVERGENCE_TIME, SYSALS__INTEGRATION_PERIOD,timeout;
+    MeasureMode measureMode;
+    CalibrationMode calibrationMode;
+    uint16_t rangeMaxConvergenceTime, alsMaxIntegrationPeriod, timeout;
 };
 
 

@@ -27,7 +27,7 @@ TCA9548A I2CMux;
 Adafruit_BME280 bme;
 
 // Initially the same config for all sensors
-const SensorConfig defaultConfig = { INTERLEAVED,  30, 50, 500};
+const SensorConfig defaultConfig = { INTERLEAVED, MANUAL, 30, 50, 500};
 
 const TofSensor tofSensors[4] = {
   TofSensor { pololusensor1,   defaultConfig, PIN_RESET_POLOLU_1,   25 },
@@ -114,8 +114,8 @@ void setup() {
       // time to 30 ms and 50 ms, respectively, to allow 10 Hz
       // operation (as suggested by table "Interleaved mode
       // limits (10 Hz operation)" in the datasheet).
-      tofSensors[i].sensor.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, tofSensors[i].config.SYSRANGE__MAX_CONVERGENCE_TIME);
-      tofSensors[i].sensor.writeReg16Bit(VL6180X::SYSALS__INTEGRATION_PERIOD, tofSensors[i].config.SYSALS__INTEGRATION_PERIOD);
+      tofSensors[i].sensor.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, tofSensors[i].config.rangeMaxConvergenceTime);
+      tofSensors[i].sensor.writeReg16Bit(VL6180X::SYSALS__INTEGRATION_PERIOD, tofSensors[i].config.alsMaxIntegrationPeriod);
       tofSensors[i].sensor.setTimeout(tofSensors[i].config.timeout);
 
       // stop continuous mode if already active
@@ -123,6 +123,13 @@ void setup() {
       // in case stopContinuous() triggered a single-shot
       // measurement, wait for it to complete
       delay(300);
+
+      if(tofSensors[i].config.calibrationMode == MANUAL) {
+        // disable auto calibrate (to do it manually before every series)
+        tofSensors[i].sensor.writeReg(VL6180X::SYSRANGE__VHV_REPEAT_RATE, 0x00);    
+        // calibrate single time (actually the sensor should have done it during start up)
+        tofSensors[i].sensor.writeReg(VL6180X::SYSRANGE__VHV_RECALIBRATE, 0x01);   
+      }
 
       Serial.println(", configuration completed");
     }
