@@ -5,14 +5,11 @@
 #include "TCA9548A.h"
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
+#include "measurements.h"
+#include "sensors.h"
 
-
-#ifdef DEBUG
-  #define print(x) Serial.print(x);
-  #define println(x) Serial.println(x);
-#else
-  #define print(x)
-  #define println(x)
+#ifndef DEBUG
+  #define Serial
 #endif
 
 VL6180X pololusensor1;
@@ -29,168 +26,23 @@ const uint8_t numberOfMeasurements = 50; // max 255!
 TCA9548A I2CMux; 
 Adafruit_BME280 bme;
 
-struct TofSensor
-{
-    VL6180X &sensor;
-    uint8_t resetPin, i2cAddress;
-};
+// Initially the same config for all sensors
+const SensorConfig defaultConfig = { INTERLEAVED,  30, 50, 500};
 
 const TofSensor tofSensors[4] = {
-  TofSensor { pololusensor1,   PIN_RESET_POLOLU_1,   25 },
-  TofSensor { pololusensor2,   PIN_RESET_POLOLU_2,   26 },
-  TofSensor { adafruitsensor1, PIN_RESET_ADAFRUIT_1, 27 },
-  TofSensor { adafruitsensor2, PIN_RESET_ADAFRUIT_2, 28 }
+  TofSensor { pololusensor1,   defaultConfig, PIN_RESET_POLOLU_1,   25 },
+  TofSensor { pololusensor2,   defaultConfig, PIN_RESET_POLOLU_2,   26 },
+  TofSensor { adafruitsensor1, defaultConfig, PIN_RESET_ADAFRUIT_1, 27 },
+  TofSensor { adafruitsensor2, defaultConfig, PIN_RESET_ADAFRUIT_2, 28 }
 };
 
 const uint8_t numberOfSensors = sizeof(tofSensors) / sizeof(TofSensor);
 
-struct Stats
-{
-    double mean, standardDeviation;
-};
 
-struct Measurement
-{
-    double meanDistance, standardDeviationDistance, meanAmbientLight, standardDeviationAmbientLight;
-    uint8_t successfulMeasurementsDistance, successfulMeasurementsAmbientLight;
-};
-
-
-double calcMean(uint8_t successfulMeasurements, uint16_t measurementSeries[numberOfMeasurements]) {
-    double mean = 0.0;
-
-    if (successfulMeasurements > 0)
-    {
-        // Mean
-        for(uint8_t i = 0; i < successfulMeasurements; i++) {
-            mean += measurementSeries[i];
-        }
-        mean = mean/successfulMeasurements;
-    }
-
-    return mean;
-}
-
-double calcSD(uint8_t successfulMeasurements, uint16_t measurementSeries[numberOfMeasurements], double mean) {
-    double standardDeviation = 0.0;
-    if (successfulMeasurements > 0)
-    {
-        double variance = 0.0;
-        // Variance
-        for(uint8_t i = 0; i < successfulMeasurements; i++) {
-            variance += sq(measurementSeries[i] - mean);
-        }
-        variance = variance/(successfulMeasurements-1);
-
-        // Standard deviation
-        standardDeviation = sqrt(variance);
-    }
-
-     return standardDeviation;
-}
-
-struct Stats calcStats(uint8_t successfulMeasurements, uint16_t measurementSeries[numberOfMeasurements]) {
-    double mean = calcMean(successfulMeasurements, measurementSeries);
-    return Stats { mean, calcSD(successfulMeasurements, measurementSeries, mean)};
-}
-
-
-struct Measurement  measureDistanceAndAmbientLight(uint8_t sensorNumber) {
-    uint16_t measurementSeriesDistance[numberOfMeasurements];
-    uint16_t measurementSeriesAmbientLight[numberOfMeasurements];
-
-    print("Start measurement using ToF-Sensor ");
-    print(tofSensors[sensorNumber].i2cAddress);
-    print(", #Measurement: ");
-    println(numberOfMeasurements);
-
-    // calibrate sensor in terms of temperature
-    // disabled
-    //sensor.writeReg(sensor.SYSRANGE__VHV_RECALIBRATE, 0x01);    
-
-
-    tofSensors[sensorNumber].sensor.startInterleavedContinuous();
-    uint8_t successfulMeasurementsDistance = 0;
-    uint8_t successfulMeasurementsAmbientLight = 0;
-
-    for (uint8_t i = 0; i < numberOfMeasurements; i++) {
-        // Ambient Light
-        uint16_t currentAmbientLight = tofSensors[sensorNumber].sensor.readAmbientContinuous();
-        if (!tofSensors[sensorNumber].sensor.timeoutOccurred()) {
-            measurementSeriesAmbientLight[successfulMeasurementsAmbientLight] = currentAmbientLight;
-            successfulMeasurementsAmbientLight += 1;
-
-            #ifdef SINGLE_VALUES
-                // Print current value to Serial
-                if(i == numberOfMeasurements - 1) {
-                    println(currentAmbientLight);
-                }
-                else {
-                    print(currentAmbientLight);
-                    print(",");
-                }
-            #endif
-        }
-
-        // Distance
-        uint16_t currentDistance = (uint16_t) tofSensors[sensorNumber].sensor.readRangeContinuous();
-        if (!tofSensors[sensorNumber].sensor.timeoutOccurred()) {
-            measurementSeriesDistance[successfulMeasurementsDistance] = currentDistance;
-            successfulMeasurementsDistance += 1;
-
-            #ifdef SINGLE_VALUES
-                // Print current value to Serial
-                if(i == numberOfMeasurements - 1) {
-                    println(currentDistance);
-                }
-                else {
-                    print(currentDistance);
-                    print(",");
-                }
-            #endif
-        }
-    }
-    tofSensors[sensorNumber].sensor.stopContinuous();
-
-    struct Stats statsAmbientLight = calcStats(successfulMeasurementsAmbientLight, measurementSeriesAmbientLight);
-    struct Stats statsDistance = calcStats(successfulMeasurementsDistance, measurementSeriesDistance);
-
-
-
-    // print("Distsucc: ");
-    // print(successfulMeasurementsDistance);
-    // print("/");
-    // print(numberOfMeasurements);
-    // println();
-    print("DistM:");
-    print(statsDistance.mean);
-    println();
-
-    print("DistSD:");
-    print(statsDistance.standardDeviation);
-    println();
-
-    print("ALSsuc:");
-    print(successfulMeasurementsAmbientLight);
-    print("/");
-    print(numberOfMeasurements);
-    println();
-    print("ALSM:");
-    print(statsAmbientLight.mean);
-    println();
-
-    print("ALSSD:");
-    print(statsAmbientLight.standardDeviation);
-    println();
-
-	struct Measurement measurement = { statsDistance.mean, statsDistance.standardDeviation, statsAmbientLight.mean, statsAmbientLight.standardDeviation, successfulMeasurementsDistance, successfulMeasurementsAmbientLight };
-
-  return measurement;
-}
 
 
 void scanI2C() {
-  println ("I2C scanner. Scanning ...");
+  Serial.println("I2C scanner. Scanning ...");
   byte count = 0;
 
 
@@ -200,19 +52,19 @@ void scanI2C() {
     Wire.beginTransmission (i);
     if (Wire.endTransmission () == 0)
     {
-      print ("Found address: ");
-      print (i);
-      print (" (0x");
-      print (i);
-      println (")");
+      Serial.print("Found address: ");
+      Serial.print(i);
+      Serial.print(" (0x");
+      Serial.print(i);
+      Serial.println(")");
       count++;
       delay (1);  // maybe unneeded?
     } // end of good response
   } // end of for loop
-  println ("Done.");
-  print ("Found ");
-  print (count);
-  println (" device(s).");
+  Serial.println("Done.");
+  Serial.print("Found ");
+  Serial.print(count);
+  Serial.println(" device(s).");
 }
 
 
@@ -235,7 +87,7 @@ void setup() {
       Serial.begin(9600);
       while (!Serial);
     #endif
-    println(F("Strtng"));
+    Serial.println(F("Strtng"));
 
     delay(500);
     Wire.begin();
@@ -244,16 +96,16 @@ void setup() {
     // and configure it
     for (uint8_t i = 0; i < numberOfSensors; i++)
     {
-      print("Configure ToF-Sensor #");
-      print(i);
-      print(": ");
+      Serial.print("Configure ToF-Sensor #");
+      Serial.print(i);
+      Serial.print(": ");
       pinMode(tofSensors[i].resetPin, INPUT);
       delay(150);
       tofSensors[i].sensor.init();
       delay(100);
       tofSensors[i].sensor.setAddress(tofSensors[i].i2cAddress);
-      print("I2C address set to ");
-      print(tofSensors[i].sensor.getAddress());
+      Serial.print("I2C address set to ");
+      Serial.print(tofSensors[i].sensor.getAddress());
 
       tofSensors[i].sensor.init();
       tofSensors[i].sensor.configureDefault();
@@ -262,9 +114,9 @@ void setup() {
       // time to 30 ms and 50 ms, respectively, to allow 10 Hz
       // operation (as suggested by table "Interleaved mode
       // limits (10 Hz operation)" in the datasheet).
-      tofSensors[i].sensor.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, 30);
-      tofSensors[i].sensor.writeReg16Bit(VL6180X::SYSALS__INTEGRATION_PERIOD, 50);
-      tofSensors[i].sensor.setTimeout(500);
+      tofSensors[i].sensor.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, tofSensors[i].config.SYSRANGE__MAX_CONVERGENCE_TIME);
+      tofSensors[i].sensor.writeReg16Bit(VL6180X::SYSALS__INTEGRATION_PERIOD, tofSensors[i].config.SYSALS__INTEGRATION_PERIOD);
+      tofSensors[i].sensor.setTimeout(tofSensors[i].config.timeout);
 
       // stop continuous mode if already active
       tofSensors[i].sensor.stopContinuous();
@@ -272,7 +124,7 @@ void setup() {
       // measurement, wait for it to complete
       delay(300);
 
-      println(", configuration completed");
+      Serial.println(", configuration completed");
     }
 
     // IC2 Multiplex
@@ -283,7 +135,7 @@ void setup() {
     I2CMux.openChannel(0);
     // Setup BME280, use address 0x77 (default) or 0x76
     if (!bme.begin(0x76)) {
-      println(F("noBME"));
+      Serial.println(F("noBME"));
       while (1);
     }
 
@@ -320,52 +172,52 @@ void loop()
 
   for (uint8_t i = 0; i < numberOfSensors; i++)
   {
-    measurements[i] = measureDistanceAndAmbientLight(i);
+    measurements[i] = measureDistanceAndAmbientLight(&tofSensors[i], numberOfMeasurements);
     // short delay
-    delay(300);
+    delay(100);
   }
   /*
 
-  print("Ambient: ");
+  Serial.print("Ambient: ");
   for (uint8_t i = 0; i < numberOfSensors; i++)
   {
-    print(tofSensors[i].sensor.readAmbientContinuous());
-    if (tofSensors[i].sensor.timeoutOccurred()) { print(" TIMEOUT"); }
+    Serial.print(tofSensors[i].sensor.readAmbientContinuous());
+    if (tofSensors[i].sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
 
-    if(i < numberOfSensors-1) { print(" / "); }
+    if(i < numberOfSensors-1) { Serial.print(" / "); }
   }
 
 
-  print("\tRange: ");
+  Serial.print("\tRange: ");
   for (uint8_t i = 0; i < numberOfSensors; i++)
   {
-    print(tofSensors[i].sensor.readRangeContinuousMillimeters());
-    if (tofSensors[i].sensor.timeoutOccurred()) { print(" TIMEOUT"); }
+    Serial.print(tofSensors[i].sensor.readRangeContinuousMillimeters());
+    if (tofSensors[i].sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
 
-    if(i < numberOfSensors-1) { print(" / "); }
+    if(i < numberOfSensors-1) { Serial.print(" / "); }
   }
   */
 
-  print("\tTemp: ");
+  Serial.print("\tTemp: ");
   I2CMux.openChannel(0);
   bme.takeForcedMeasurement();
-  print(bme.readTemperature());
-  print(" / ");
+  Serial.print(bme.readTemperature());
+  Serial.print(" / ");
   I2CMux.closeChannel(0);
   I2CMux.openChannel(1);
   bme.takeForcedMeasurement();
-  print(bme.readTemperature());
+  Serial.print(bme.readTemperature());
   I2CMux.closeChannel(1);
 
-  print("\tHum: ");
+  Serial.print("\tHum: ");
   I2CMux.openChannel(0);
-  print(bme.readHumidity());
-  print(" / ");
+  Serial.print(bme.readHumidity());
+  Serial.print(" / ");
   I2CMux.closeChannel(0);
   I2CMux.openChannel(1);
-  print(bme.readHumidity());
+  Serial.print(bme.readHumidity());
   I2CMux.closeChannel(1);
 
-  println();
+  Serial.println();
   delay(1000);
 }
