@@ -35,13 +35,73 @@ double calcSD(uint8_t successfulMeasurements, uint16_t measurementSeries[], uint
      return standardDeviation;
 }
 
-struct Stats calcStats(uint8_t successfulMeasurements, uint16_t measurementSeries[], uint8_t numberOfMeasurements) {
-    double mean = calcMean(successfulMeasurements, measurementSeries, numberOfMeasurements);
-    return Stats { mean, calcSD(successfulMeasurements, measurementSeries, numberOfMeasurements, mean)};
+void exchangeNumbers(uint16_t arrayToSort[], int i, int j) {
+ int temp = arrayToSort[i];
+ arrayToSort[i] = arrayToSort[j];
+ arrayToSort[j] = temp;
+}
+
+// quick sort & and exchange numbers code adopted from
+// https://create.arduino.cc/projecthub/Alfodr/quicksort-algorithm-and-esp8266-web-server-6126bf
+// License: GPL3+
+void quickSort(uint16_t arrayToSort[], int lowerIndex, int higherIndex) {
+ int i = lowerIndex;
+ int j = higherIndex;
+ int pivot = arrayToSort[lowerIndex + (higherIndex - lowerIndex) / 2];
+ while (i <= j) {
+   while (arrayToSort[i] < pivot) {
+     i++;
+   }
+   while (arrayToSort[j] > pivot) {
+     j--;
+   }
+   if (i <= j) {
+     exchangeNumbers(arrayToSort, i, j);
+     i++;
+     j--;
+   }
+ }
+ if (lowerIndex < j)
+   quickSort(arrayToSort, lowerIndex, j);
+ if (i < higherIndex)
+   quickSort(arrayToSort, i, higherIndex);
 }
 
 
-struct Measurement  measureDistanceAndAmbientLight(const TofSensor *tofSensor, uint8_t numberOfMeasurements) {
+double calcMedian(uint8_t successfulMeasurements, uint16_t measurementSeries[], uint8_t numberOfMeasurements) {
+    uint16_t succesfulMeasurementSeries[successfulMeasurements] = {0};
+
+    uint8_t j = 0;
+    for (uint8_t i = 0; i < numberOfMeasurements; i++)
+    {
+        if(measurementSeries[i] != 0 && j < successfulMeasurements) {
+            succesfulMeasurementSeries[j] = measurementSeries[i];
+            j +=1;
+        }
+    }
+    quickSort(succesfulMeasurementSeries, 0, successfulMeasurements -1);
+    
+    if(successfulMeasurements % 2 == 0) {
+        return (
+                succesfulMeasurementSeries[successfulMeasurements/2]
+                + succesfulMeasurementSeries[(successfulMeasurements/2)+1]
+                )
+                / 2;
+    }
+    else {
+            return succesfulMeasurementSeries[round(successfulMeasurements/2)];
+    }
+}
+
+struct Stats calcStats(uint8_t successfulMeasurements, uint16_t measurementSeries[], uint8_t numberOfMeasurements) {
+    double mean = calcMean(successfulMeasurements, measurementSeries, numberOfMeasurements);
+    double sd = calcSD(successfulMeasurements, measurementSeries, numberOfMeasurements, mean);
+    double median = calcMedian(successfulMeasurements, measurementSeries, numberOfMeasurements);
+    return Stats { mean, sd, median};
+}
+
+
+struct Measurement measureDistanceAndAmbientLight(const TofSensor *tofSensor, uint8_t numberOfMeasurements) {
     uint16_t measurementSeriesDistance[numberOfMeasurements];
     uint16_t measurementSeriesAmbientLight[numberOfMeasurements];
 
