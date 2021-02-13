@@ -7,6 +7,7 @@
 #include <Adafruit_BME280.h>
 #include "measurements.h"
 #include "sensors.h"
+#include <Statistics.h>
 
 #ifndef DEBUG
   #define Serial
@@ -179,7 +180,7 @@ void loop()
 
   for (uint8_t i = 0; i < numberOfSensors; i++)
   {
-    measurements[i] = measureDistanceAndAmbientLight(&tofSensors[i], numberOfMeasurements);
+    measurements[i] = measureDistanceAndAmbientLightInterleaved(&tofSensors[i], numberOfMeasurements);
     // short delay
     delay(100);
   }
