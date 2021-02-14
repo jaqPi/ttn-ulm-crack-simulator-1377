@@ -176,7 +176,7 @@ void setup() {
 
 void loop()
 {
-  Measurement measurements[numberOfSensors];
+  measurement_t measurements[numberOfSensors];
 
   for (uint8_t i = 0; i < numberOfSensors; i++)
   {

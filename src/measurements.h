@@ -5,5 +5,8 @@
 #ifndef MEASUREMENTS_H
 #define MEASUREMENTS_H
 
-struct Measurement  measureDistanceAndAmbientLightInterleaved(const TofSensor *tofSensor, uint8_t numberOfMeasurements);
+measurement_t measureDistanceAndAmbientLight(const TofSensor *tofSensor, uint8_t numberOfMeasurements);
+measurement_t  measureDistanceAndAmbientLightInterleaved(const TofSensor *tofSensor, uint8_t numberOfMeasurements);
+measurement_t  measureDistanceAndAmbientLightOneByOne(const TofSensor *tofSensor, uint8_t numberOfMeasurements);
+
 #endif

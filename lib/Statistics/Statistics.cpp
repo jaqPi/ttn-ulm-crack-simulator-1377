@@ -96,10 +96,10 @@ float calcMedian(uint8_t successfulMeasurements, uint16_t measurementSeries[], u
     }
 }
 
-struct Stats calcStats(uint8_t successfulMeasurements, uint16_t measurementSeries[], uint8_t numberOfMeasurements) {
+stats_t calcStats(uint8_t successfulMeasurements, uint16_t measurementSeries[], uint8_t numberOfMeasurements) {
     double mean = calcMean(successfulMeasurements, measurementSeries, numberOfMeasurements);
     double sd = calcSD(successfulMeasurements, measurementSeries, numberOfMeasurements, mean);
     double median = calcMedian(successfulMeasurements, measurementSeries, numberOfMeasurements);
-    struct Stats stats = {mean, sd, median};
+    stats_t stats = {mean, sd, median};
     return stats;
 }
