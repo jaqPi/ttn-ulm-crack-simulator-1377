@@ -99,7 +99,7 @@ float calcMedian(uint8_t successfulMeasurements, uint16_t measurementSeries[], u
 stats_t calcStats(uint8_t successfulMeasurements, uint16_t measurementSeries[], uint8_t numberOfMeasurements) {
     double mean = calcMean(successfulMeasurements, measurementSeries, numberOfMeasurements);
     double sd = calcSD(successfulMeasurements, measurementSeries, numberOfMeasurements, mean);
-    double median = calcMedian(successfulMeasurements, measurementSeries, numberOfMeasurements);
+    float median = calcMedian(successfulMeasurements, measurementSeries, numberOfMeasurements);
     stats_t stats = {mean, sd, median};
     return stats;
 }
