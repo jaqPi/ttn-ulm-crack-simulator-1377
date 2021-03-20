@@ -33,6 +33,13 @@ enum MESSAGE_TYPE {
   ERROR
 };
 
+enum ERROR_CODES {
+  NO_RESPONSE_I2C_ADDRESS,
+  DEFAULT_I2C,
+  NO_RESPONSE_SENSOR,
+  SENSOR_ERROR
+};
+
 typedef struct LoRaPacket {
     byte payload[20];
     uint8_t length;
@@ -195,8 +202,69 @@ void do_send(osjob_t* j){
         // ToF-Sensors
         for (uint8_t i = 0; i < numberOfSensors; i++)
         {
-          measurement_t currentMeasurement = measureDistanceAndAmbientLight(&tofSensors[i], numberOfMeasurements);
           loRaPacket_t distancePacket;
+          
+          // error handling PRE measurement
+
+          // is sensor reachable?
+          Wire.beginTransmission(tofSensors[i].i2cAddress);
+          uint8_t i2cStatus = Wire.endTransmission();
+          if(i2cStatus != 0) {
+              // the sensor is not reachable under its assigned address.
+              // check for sensor's factory default address:
+
+              Wire.beginTransmission(29);
+              if(Wire.endTransmission() == 0) {
+                // sensor was somehow resettet to its default i2c address
+                distancePacket.payload[0] = ERROR;
+                distancePacket.payload[1] = i + 1; // sensor number
+                distancePacket.payload[2] = DEFAULT_I2C;
+                distancePacket.length = 3;
+                queue.push(distancePacket);
+                continue;
+              }
+              else {
+                // sensor is gone :-(
+                distancePacket.payload[0] = ERROR;
+                distancePacket.payload[1] = i + 1; // sensor number
+                distancePacket.payload[2] = NO_RESPONSE_I2C_ADDRESS;
+                distancePacket.payload[3] = i2cStatus;
+                distancePacket.length = 4;
+                queue.push(distancePacket);
+                continue;
+              }
+          }
+
+          // is sensor present?
+          if(tofSensors[i].sensor.readReg(VL6180X::IDENTIFICATION__MODEL_ID) != 0xB4) {
+            distancePacket.payload[0] = ERROR;
+            distancePacket.payload[1] = i + 1; // sensor number
+            distancePacket.payload[2] = NO_RESPONSE_SENSOR;
+            distancePacket.length = 3;
+            queue.push(distancePacket);
+            continue;
+          }
+          
+          measurement_t currentMeasurement = measureDistanceAndAmbientLight(&tofSensors[i], numberOfMeasurements);
+          
+          // error handling POST measurement
+          if(currentMeasurement.distance.mean == 255.0) {
+            byte errorCode = tofSensors[i].sensor.readReg(VL6180X::RESULT__RANGE_STATUS);
+            distancePacket.payload[0] = ERROR;
+            distancePacket.payload[1] = i + 1; // sensor number
+            distancePacket.payload[2] = SENSOR_ERROR;
+            // Sensor Error Code Overview:
+            // * https://www.st.com/resource/en/datasheet/vl6180x.pdf
+            // 
+            // Error Code Description
+            // * https://www.st.com/resource/en/design_tip/dm00114111-vl6180x-range-status-error-codes-explanation-stmicroelectronics.pdf
+            // * https://www.st.com/content/ccc/resource/sales_and_marketing/presentation/product_presentation/cc/96/42/b5/56/60/4d/e0/VL6180X_API_IntegrationGuide.pdf/files/VL6180X_API_IntegrationGuide.pdf/jcr:content/translations/en.VL6180X_API_IntegrationGuide.pdf
+            distancePacket.payload[3] = errorCode;
+            distancePacket.length = 4;
+            queue.push(distancePacket);
+            continue;
+          }
+          
 
           // number of Sensor
           distancePacket.payload[0] = i + 1;

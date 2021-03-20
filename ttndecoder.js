@@ -37,6 +37,9 @@ function Decoder(bytes, port) {
         decoded.errorType = bytes[2];
         if(errorType != 2) {
             decoded.errorCode = bytes[3];
+            // todo decode error code such aus
+            //  errorCode = (errorCode >> 4) & 15;
+
         }
       break;
     }
