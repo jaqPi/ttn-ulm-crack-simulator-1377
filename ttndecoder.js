@@ -35,7 +35,7 @@ function Decoder(bytes, port) {
       case 5:
         decoded.sensor = bytes[1];
         decoded.errorType = bytes[2];
-        if(errorType != 2) {
+        if(decoded.errorType != 2) {
             decoded.errorCode = bytes[3];
             // todo decode error code such aus
             //  errorCode = (errorCode >> 4) & 15;
