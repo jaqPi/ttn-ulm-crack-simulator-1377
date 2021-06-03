@@ -10,6 +10,7 @@
 #include "arduino_lmic.h"
 #include <hal/hal.h>
 #include <Queue.h>
+#include "TCA9548A.h"
 
 #include <Credentials.h> // TODO
 
@@ -21,6 +22,8 @@ VL6180X adafruitsensor1;
 #define PIN_RESET_ADAFRUIT_1 10
 VL6180X adafruitsensor2;
 #define PIN_RESET_ADAFRUIT_2 11
+
+TCA9548A I2CMux;                  // Address can be passed into the constructor
 
 const uint8_t numberOfMeasurements = 50; // max 255!
 
@@ -55,10 +58,10 @@ const SensorConfig configInterleaved = { INTERLEAVED, MANUAL, 30, 50, 500};
 const SensorConfig configOneByOne = { ONE_BY_ONE, MANUAL, 30, 50, 500};
 
 const TofSensor tofSensors[4] = {
-  TofSensor { pololusensor1,   configInterleaved, PIN_RESET_POLOLU_1,   25 },
-  TofSensor { pololusensor2,   configInterleaved, PIN_RESET_POLOLU_2,   26 },
-  TofSensor { adafruitsensor1, configInterleaved, PIN_RESET_ADAFRUIT_1, 27 },
-  TofSensor { adafruitsensor2, configInterleaved, PIN_RESET_ADAFRUIT_2, 28 }
+  TofSensor { pololusensor1,   configInterleaved, PIN_RESET_POLOLU_1,   0x29 },
+  TofSensor { pololusensor2,   configInterleaved, PIN_RESET_POLOLU_2,   0x29 },
+  TofSensor { adafruitsensor1, configInterleaved, PIN_RESET_ADAFRUIT_1, 0x29 },
+  TofSensor { adafruitsensor2, configInterleaved, PIN_RESET_ADAFRUIT_2, 0x29 }
 };
 
 const uint8_t numberOfSensors = sizeof(tofSensors) / sizeof(TofSensor);
@@ -202,6 +205,8 @@ void do_send(osjob_t* j){
         // ToF-Sensors
         for (uint8_t i = 0; i < numberOfSensors; i++)
         {
+          I2CMux.openChannel(i); // TEMP
+          
           loRaPacket_t distancePacket;
           
           // error handling PRE measurement
@@ -213,7 +218,7 @@ void do_send(osjob_t* j){
               // the sensor is not reachable under its assigned address.
               // check for sensor's factory default address:
 
-              Wire.beginTransmission(29);
+              Wire.beginTransmission(0x29);
               if(Wire.endTransmission() == 0) {
                 // sensor was somehow resettet to its default i2c address
                 distancePacket.payload[0] = ERROR;
@@ -312,6 +317,7 @@ void do_send(osjob_t* j){
 
           distancePacket.length = 16;
           queue.push(distancePacket);
+          I2CMux.closeChannel(i); // TEMP
           // short delay
           delay(100);
         }
@@ -430,8 +436,8 @@ void setup() {
     // Send shutdown signal to VL6180X sensors to be able to changer their I2C address
     for (uint8_t i = 0; i < numberOfSensors; i++)
     {
-      pinMode(tofSensors[i].resetPin, OUTPUT);
-      digitalWrite(tofSensors[i].resetPin, LOW);
+      //pinMode(tofSensors[i].resetPin, OUTPUT); TEMP
+      //digitalWrite(tofSensors[i].resetPin, LOW);
     }
 
     #ifdef DEBUG    
@@ -443,22 +449,27 @@ void setup() {
     delay(500);
     Wire.begin();
 
+    // For test purposes we use a I2C multiplexer instead of changing the i2c address to each sensor
+    I2CMux.begin(Wire);
+    I2CMux.closeAll(); 
+
     // Wake up one sensor afther the other to change its I2C address
     // and configure it
     for (uint8_t i = 0; i < numberOfSensors; i++)
     {
+      I2CMux.openChannel(i); // TEMP
       Serial.print("Configure ToF-Sensor #");
       Serial.print(i);
       Serial.print(": ");
-      pinMode(tofSensors[i].resetPin, INPUT);
-      delay(150);
+      //pinMode(tofSensors[i].resetPin, INPUT);
+      //delay(150);
       tofSensors[i].sensor.init();
       delay(100);
-      tofSensors[i].sensor.setAddress(tofSensors[i].i2cAddress);
-      Serial.print("I2C address set to ");
-      Serial.print(tofSensors[i].sensor.getAddress());
+      //tofSensors[i].sensor.setAddress(tofSensors[i].i2cAddress);
+      //Serial.print("I2C address set to ");
+      //Serial.print(tofSensors[i].sensor.getAddress());
 
-      tofSensors[i].sensor.init();
+      //tofSensors[i].sensor.init();
       tofSensors[i].sensor.configureDefault();
 
       // Reduce range max convergence time and ALS integration
@@ -483,6 +494,7 @@ void setup() {
       }
 
       Serial.println(", configuration completed");
+      I2CMux.closeChannel(i); // TEMP
     }
 
     scanI2C();
