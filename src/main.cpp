@@ -13,14 +13,16 @@
 
 #include <Credentials.h> // TODO
 
-VL6180X pololusensor1;
-#define PIN_RESET_POLOLU_1 5
-VL6180X pololusensor2;
-#define PIN_RESET_POLOLU_2 12
 VL6180X adafruitsensor1;
 #define PIN_RESET_ADAFRUIT_1 10
+VL6180X pololusensor1;
+#define PIN_RESET_POLOLU_1 11
 VL6180X adafruitsensor2;
-#define PIN_RESET_ADAFRUIT_2 11
+#define PIN_RESET_ADAFRUIT_2 12
+VL6180X pololusensor2;
+#define PIN_RESET_POLOLU_2 5
+
+
 
 const uint8_t numberOfMeasurements = 50; // max 255!
 
@@ -55,10 +57,10 @@ const SensorConfig configInterleaved = { INTERLEAVED, MANUAL, 30, 50, 500};
 const SensorConfig configOneByOne = { ONE_BY_ONE, MANUAL, 30, 50, 500};
 
 const TofSensor tofSensors[4] = {
-  TofSensor { pololusensor1,   configInterleaved, PIN_RESET_POLOLU_1,   25 },
-  TofSensor { pololusensor2,   configInterleaved, PIN_RESET_POLOLU_2,   26 },
-  TofSensor { adafruitsensor1, configInterleaved, PIN_RESET_ADAFRUIT_1, 27 },
-  TofSensor { adafruitsensor2, configInterleaved, PIN_RESET_ADAFRUIT_2, 28 }
+  TofSensor { adafruitsensor1, configInterleaved, PIN_RESET_ADAFRUIT_1, 0x25 },
+  TofSensor { pololusensor1,   configInterleaved, PIN_RESET_POLOLU_1,   0x26 },
+  TofSensor { adafruitsensor2, configInterleaved, PIN_RESET_ADAFRUIT_2, 0x27 },
+  TofSensor { pololusensor2,   configInterleaved, PIN_RESET_POLOLU_2,   0x28 }
 };
 
 const uint8_t numberOfSensors = sizeof(tofSensors) / sizeof(TofSensor);
@@ -213,7 +215,7 @@ void do_send(osjob_t* j){
               // the sensor is not reachable under its assigned address.
               // check for sensor's factory default address:
 
-              Wire.beginTransmission(29);
+              Wire.beginTransmission(0x29);
               if(Wire.endTransmission() == 0) {
                 // sensor was somehow resettet to its default i2c address
                 distancePacket.payload[0] = ERROR;
@@ -432,7 +434,8 @@ void setup() {
     {
       pinMode(tofSensors[i].resetPin, OUTPUT);
       digitalWrite(tofSensors[i].resetPin, LOW);
-    }
+    }    
+
 
     #ifdef DEBUG    
       Serial.begin(9600);
@@ -485,7 +488,7 @@ void setup() {
       Serial.println(", configuration completed");
     }
 
-    scanI2C();
+    
 
     // Setup BME280, use address 0x77 (default) or 0x76
     if (!bme1.begin(0x76)) {
@@ -514,6 +517,8 @@ void setup() {
                     Adafruit_BME280::SAMPLING_X1, // pressure
                     Adafruit_BME280::SAMPLING_X1, // humidity
                     Adafruit_BME280::FILTER_OFF   );
+
+    scanI2C();
 
     // LMIC init
     os_init();
