@@ -130,7 +130,7 @@ https://github.com/pololu/vl53l0x-arduino/issues/1
 void do_send(osjob_t* j){
     // Check if there is not a current TX/RX job running
     if (LMIC.opmode & OP_TXRXPEND) {
-      Serial.println(F("OP_TXRXPEND, not sending"));
+        Serial.println(F("OP_TXRXPEND, not sending"));
     } else {
 
         // temp             -> 2 byte
@@ -358,19 +358,19 @@ void onEvent (ev_t ev) {
         ||     break;
         */
         case EV_JOIN_FAILED:
-            Serial.println("EV_JOIN_FAILED");
+            Serial.println(F("EV_JOIN_FAILED"));
             break;
         case EV_REJOIN_FAILED:
-            Serial.println("EV_REJOIN_FAILED");
+            Serial.println(F("EV_REJOIN_FAILED"));
             break;
         case EV_TXCOMPLETE:
-            Serial.println("EV_TXCOMPLETE");
+            Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
             if (LMIC.txrxFlags & TXRX_ACK)
-              Serial.println("Rcvd ack");
+              Serial.println(F("Received ack"));
             if (LMIC.dataLen) {
-              Serial.println("Received ");
+              Serial.println(F("Received "));
               Serial.println(LMIC.dataLen);
-              Serial.println(" bytes of payload");
+              Serial.println(F(" bytes of payload"));
             }
 
             if(queue.count() > 0) {
