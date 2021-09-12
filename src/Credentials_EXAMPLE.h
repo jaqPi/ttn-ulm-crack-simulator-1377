@@ -1,10 +1,17 @@
-// Example requires activation method "ABP" and disabled frame counter checks
+// Example requires activation method "OTAA"
 
 // 1. Rename to Credentials.h
 
-// 2. Insert your "Network Session Key" in hex msb format, e.g., {0x12, 0x34 ...}
-static const PROGMEM u1_t NWKSKEY[16] = ;
-// 3. "App Session Key" in hex msb format, e.g., {0x12, 0x34 ...}
-static const u1_t PROGMEM APPSKEY[16] = ;
-// 4. "Device Address" not in msb, just in hex format, e.g., 0x123456AB
-static const u4_t DEVADDR = ;
+// This EUI must be in little-endian format, so least-significant-byte
+// first. When copying an EUI from ttnctl output, this means to reverse
+// the bytes. For TTN issued EUIs the last bytes should be 0xD5, 0xB3,
+// 0x70.
+static const u1_t PROGMEM APPEUI[8]= { };
+
+// This should also be in little endian format, see above.
+static const u1_t PROGMEM DEVEUI[8]= {  };
+
+// This key should be in big endian format (or, since it is not really a
+// number but a block of memory, endianness does not really apply). In
+// practice, a key taken from the TTN console can be copied as-is.
+static const u1_t PROGMEM APPKEY[16] = {  };

@@ -1,3 +1,14 @@
+/*
+Code is based on the the OTAA example of the arduino-lmic library
+
+ * Copyright (c) 2015 Thomas Telkamp and Matthijs Kooijman
+ * Copyright (c) 2018 Terry Moore, MCCI
+
+which is licensed under the MIT license
+https://github.com/mcci-catena/arduino-lmic/blob/master/examples/ttn-otaa/ttn-otaa.ino
+*/
+
+
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
