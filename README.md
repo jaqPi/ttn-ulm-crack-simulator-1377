@@ -1,6 +1,6 @@
 # ttn-ulm-crack-simulator-1377
 
-Experimental setup to benchmark various _VL6180X_ distance sensors. The VL6180X by _STMicroelectronics_ is a time-of-flight (ToF) distance and ambient light (ALS) sensor. It measures the time a laser takes from the sensor to a reflecting target and back to the sensor. It has an optimal operating range from 0 - 10 mm with a resolution of 1 mm (up to 60 mm with decreased resolution) and an accuracy of +/- 1 mm. For more details, please refer to the [datasheet](https://www.st.com/en/imaging-and-photonics-solutions/vl6180x.html#documentation).
+Experimental setup to benchmark various _VL6180X_ distance sensors. The VL6180X by _STMicroelectronics_ is a time-of-flight (ToF) distance and ambient light (ALS) sensor. It measures the time a laser takes from the sensor to a reflecting target and back to the sensor. It has an optimal operating range from 0 - 10 cm with a resolution of 1 mm (up to 60 cm with decreased resolution) and an accuracy of +/- 1 mm. For more details, please refer to the [datasheet](https://www.st.com/en/imaging-and-photonics-solutions/vl6180x.html#documentation).
 
 ## Terms
 
